@@ -14,6 +14,7 @@ export class CombatSystem {
     this.pool = [];
     for (let i = 0; i < MAX_BULLETS; i++) this.pool.push(new Projectile(scene));
     this._fireAcc = 0;
+    this._shooterIdx = 0;
     this._tmp = new THREE.Vector3();
     this._dir = new THREE.Vector3();
   }
@@ -57,11 +58,11 @@ export class CombatSystem {
 
   _fire(dt, squad, bonus) {
     const w = squad.weapon;
-    // plus de héros = plus de tirs (chaque héros tire) ; plafonné pour les perfs
+    // chaque héros tire SA propre ligne droite -> plus de héros = plus de lignes
     const shooters = Math.min(squad.count, 60);
     const fireRate = w.fireRate * (bonus.fireRate || 1);
     let bulletsPerSec = shooters * fireRate;
-    let dmgScale = squad.count / shooters; // reporte la puissance des soldiers en trop
+    let dmgScale = squad.count / shooters; // reporte la puissance des héros en trop
     if (bulletsPerSec > MAX_RATE) {
       dmgScale *= bulletsPerSec / MAX_RATE;
       bulletsPerSec = MAX_RATE;
@@ -72,34 +73,22 @@ export class CombatSystem {
     let shots = Math.floor(this._fireAcc);
     if (shots <= 0) return;
     this._fireAcc -= shots;
-    shots = Math.min(shots, 12); // limite par frame
+    shots = Math.min(shots, 16); // limite par frame
 
-    const { target } = this._nearestTarget(squad);
-
+    const speed = 46;
+    const life = w.range / speed + 0.15;
     for (let s = 0; s < shots; s++) {
-      const si = Math.floor(Math.random() * squad.count);
-      squad.soldierWorld(si, this._tmp);
+      // on parcourt les héros en rotation pour répartir les lignes de tir
+      this._shooterIdx = (this._shooterIdx + 1) % shooters;
+      squad.soldierWorld(this._shooterIdx, this._tmp);
       const from = this._tmp.clone();
       from.y = 0.85;
-      // vise la cible, sinon tir droit devant (le trait sort du héros)
-      const tx = target ? (target.pos ? target.pos.x : target.x) : from.x;
-      const tz = target ? (target.pos ? target.pos.z : target.z) : from.z + 20;
-      const pellets = w.pellets || 1;
-      for (let p = 0; p < pellets; p++) {
-        const b = this._getBullet();
-        if (!b) return;
-        this._dir.set(tx - from.x, 0, tz - from.z).normalize();
-        // dispersion
-        const spread = (w.spread || 0);
-        const ang = pellets > 1 ? (p - (pellets - 1) / 2) * (spread / pellets) : (Math.random() - 0.5) * spread;
-        const cos = Math.cos(ang), sin = Math.sin(ang);
-        const dx = this._dir.x * cos - this._dir.z * sin;
-        const dz = this._dir.x * sin + this._dir.z * cos;
-        const speed = 42;
-        b.spawn(from, new THREE.Vector3(dx * speed, 0, dz * speed),
-          w.bulletSize * 1.0 + 0.02, w.bulletColor,
-          dmgPerBullet, w.aoe || 0, w.range / speed + 0.1);
-      }
+      const b = this._getBullet();
+      if (!b) return;
+      // TOUJOURS une ligne droite vers l'avant (+z), qui sort du héros
+      b.spawn(from, new THREE.Vector3(0, 0, speed),
+        w.bulletSize * 1.0 + 0.04, w.bulletColor,
+        dmgPerBullet, w.aoe || 0, life);
     }
     this.game.audio.shot();
   }

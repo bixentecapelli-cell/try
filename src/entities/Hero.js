@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { toonMat } from '../core/toon.js';
 
 // Le héros qui te représente : personnage distinct à l'avant de l'escouade,
 // avec des points de vie. S'il tombe à 0, c'est game over.
@@ -14,27 +15,29 @@ export class Hero {
     this.group = new THREE.Group();
 
     // corps (capsule bleu roi)
-    this.bodyMat = new THREE.MeshLambertMaterial({ color: 0x2f80ed });
+    this.bodyMat = toonMat({ color: 0x2f80ed });
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.42, 0.7, 4, 8), this.bodyMat);
     body.position.y = 0.75;
+    body.castShadow = true;
     this.group.add(body);
 
     // tête
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12),
-      new THREE.MeshLambertMaterial({ color: 0xffdbac }));
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 12, 12), toonMat({ color: 0xffdbac }));
     head.position.y = 1.5;
+    head.castShadow = true;
     this.group.add(head);
 
     // casque doré
     const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
-      new THREE.MeshLambertMaterial({ color: 0xffd24a }));
+      toonMat({ color: 0xffd24a }));
     helmet.position.y = 1.6;
+    helmet.castShadow = true;
     this.group.add(helmet);
 
     // écharpe / cape rouge pour le style
-    const cape = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.12),
-      new THREE.MeshLambertMaterial({ color: 0xe74c3c }));
+    const cape = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.12), toonMat({ color: 0xe74c3c }));
     cape.position.set(0, 0.9, -0.4);
+    cape.castShadow = true;
     this.group.add(cape);
 
     scene.add(this.group);

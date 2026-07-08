@@ -18,22 +18,34 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0x87ceeb, 40, 120);
+    this.scene.fog = new THREE.Fog(0x87ceeb, 55, 150);
 
-    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+    this.camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 400);
     this.rig = new CameraRig(this.camera);
 
     // lumières
-    const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 1.0);
+    const hemi = new THREE.HemisphereLight(0xbfe3ff, 0x3a5540, 0.9);
     this.scene.add(hemi);
-    this.sun = new THREE.DirectionalLight(0xffffff, 1.1);
-    this.sun.position.set(10, 30, 10);
+    this.sun = new THREE.DirectionalLight(0xfff2d8, 1.4);
+    this.sun.position.set(14, 34, 8);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(1024, 1024);
+    const sc = this.sun.shadow.camera;
+    sc.near = 1; sc.far = 90; sc.left = -22; sc.right = 22; sc.top = 30; sc.bottom = -30;
+    this.sun.shadow.bias = -0.0006;
     this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
 
+    this._buildSky();
     this._buildGround();
     this._buildScenery();
+    this._buildChevrons();
 
     this.squad = new Squad(this.scene);
     this.hero = new Hero(this.scene);
@@ -60,21 +72,35 @@ export class Game {
     window.addEventListener('resize', () => this._onResize());
   }
 
+  _drawGround(hex) {
+    const c = this.groundTex.image;
+    const ctx = c.getContext('2d');
+    const g = new THREE.Color(hex);
+    const a = `#${g.getHexString()}`;
+    const b = `#${g.clone().multiplyScalar(0.92).getHexString()}`;
+    // damier doux pour la profondeur
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+      ctx.fillStyle = (x + y) % 2 ? a : b;
+      ctx.fillRect(x * 32, y * 32, 32, 32);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    ctx.fillRect(0, 0, 64, 3);
+    this.groundTex.needsUpdate = true;
+  }
+
   _buildGround() {
-    // texture répétée pour l'effet de défilement
     const c = document.createElement('canvas');
     c.width = 64; c.height = 64;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = '#3fa34d'; ctx.fillRect(0, 0, 64, 64);
-    ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(0, 0, 64, 4);
     this.groundTex = new THREE.CanvasTexture(c);
     this.groundTex.wrapS = this.groundTex.wrapT = THREE.RepeatWrapping;
-    this.groundTex.repeat.set(6, 60);
+    this.groundTex.repeat.set(5, 50);
+    this._drawGround(0x3fa34d);
 
     const geo = new THREE.PlaneGeometry(24, 600);
     this.groundMat = new THREE.MeshLambertMaterial({ map: this.groundTex, color: 0xffffff });
     this.ground = new THREE.Mesh(geo, this.groundMat);
     this.ground.rotation.x = -Math.PI / 2;
+    this.ground.receiveShadow = true;
     this.scene.add(this.ground);
 
     // bords lumineux
@@ -85,16 +111,58 @@ export class Game {
     this.scene.add(this.edgeL); this.scene.add(this.edgeR);
   }
 
-  // Décor latéral qui défile (donne de la profondeur et de la vitesse ressentie).
+  // Fond de ciel en dégradé (plus joli qu'une couleur plate).
+  _buildSky() {
+    const c = document.createElement('canvas');
+    c.width = 8; c.height = 128;
+    this.skyTex = new THREE.CanvasTexture(c);
+    this._drawSky(0x87ceeb);
+    this.scene.background = this.skyTex;
+  }
+
+  _drawSky(hex) {
+    const c = this.skyTex.image;
+    const ctx = c.getContext('2d');
+    const top = new THREE.Color(hex).multiplyScalar(0.75);
+    const bot = new THREE.Color(hex).lerp(new THREE.Color(0xffffff), 0.35);
+    const grad = ctx.createLinearGradient(0, 0, 0, 128);
+    grad.addColorStop(0, `#${top.getHexString()}`);
+    grad.addColorStop(1, `#${bot.getHexString()}`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 8, 128);
+    this.skyTex.needsUpdate = true;
+  }
+
+  // Chevrons lumineux au centre de la piste -> renforce la sensation de vitesse.
+  _buildChevrons() {
+    this.chevrons = [];
+    const shape = new THREE.Shape();
+    shape.moveTo(-1.2, 0); shape.lineTo(0, 0.9); shape.lineTo(1.2, 0);
+    shape.lineTo(1.2, -0.5); shape.lineTo(0, 0.4); shape.lineTo(-1.2, -0.5);
+    const geo = new THREE.ShapeGeometry(shape);
+    for (let i = 0; i < 16; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xffffff, transparent: true, opacity: 0.28, side: THREE.DoubleSide,
+      });
+      const m = new THREE.Mesh(geo, mat);
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(0, 0.05, i * 9);
+      this.scene.add(m);
+      this.chevrons.push(m);
+    }
+  }
+
+  // Décor latéral qui défile (profondeur + vitesse ressentie).
   _buildScenery() {
     this.scenery = [];
-    const geo = new THREE.ConeGeometry(1.1, 3.2, 6);
-    for (let i = 0; i < 24; i++) {
+    const geo = new THREE.ConeGeometry(1.1, 3.6, 6);
+    for (let i = 0; i < 26; i++) {
       const mat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
       const m = new THREE.Mesh(geo, mat);
       const side = i % 2 === 0 ? -1 : 1;
-      m.position.set(side * (8 + Math.random() * 4), 1.6, i * 12);
+      m.position.set(side * (8 + Math.random() * 5), 1.8, i * 11);
       m.rotation.y = Math.random() * Math.PI;
+      m.castShadow = true;
       this.scene.add(m);
       this.scenery.push(m);
     }
@@ -106,15 +174,9 @@ export class Game {
   }
 
   _applyTheme(level) {
-    const sky = new THREE.Color(level.sky);
-    this.scene.background = sky;
-    this.scene.fog.color = sky;
-    const g = new THREE.Color(level.ground);
-    const c = this.groundTex.image;
-    const ctx = c.getContext('2d');
-    ctx.fillStyle = `#${g.getHexString()}`; ctx.fillRect(0, 0, 64, 64);
-    ctx.fillStyle = 'rgba(0,0,0,0.10)'; ctx.fillRect(0, 0, 64, 5);
-    this.groundTex.needsUpdate = true;
+    this._drawSky(level.sky);
+    this.scene.fog.color = new THREE.Color(level.sky).lerp(new THREE.Color(0xffffff), 0.2);
+    this._drawGround(level.ground);
     // teinte du décor dérivée du sol, un peu assombrie
     const dark = new THREE.Color(level.ground).multiplyScalar(0.7);
     this._applySceneryTheme(dark.getHex());
@@ -236,10 +298,19 @@ export class Game {
   }
 
   _scrollGround() {
-    this.ground.position.z = this.squad.pos.z;
-    this.edgeL.position.z = this.squad.pos.z;
-    this.edgeR.position.z = this.squad.pos.z;
-    this.groundTex.offset.y = -this.squad.pos.z / 10;
+    const z = this.squad.pos.z;
+    this.ground.position.z = z;
+    this.edgeL.position.z = z;
+    this.edgeR.position.z = z;
+    this.groundTex.offset.y = -z / 12;
+    // l'ombre du soleil suit l'escouade
+    this.sun.position.set(this.squad.pos.x + 14, 34, z + 8);
+    this.sun.target.position.set(this.squad.pos.x, 0, z + 6);
+    // chevrons qui défilent vers le joueur
+    for (const ch of this.chevrons) {
+      if (ch.position.z < z - 6) ch.position.z += this.chevrons.length * 9;
+      ch.position.x = this.squad.pos.x * 0.2;
+    }
   }
 
   _scrollScenery() {

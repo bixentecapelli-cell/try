@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getEnemy } from '../config/enemies.js';
+import { toonMat } from '../core/toon.js';
 
 // Ennemi mobile — monstres détaillés et texturés, un look différent par tier.
 // grunt = petit démon cornu · armored = brute blindée · runner = cyclope rapide
@@ -26,9 +27,7 @@ export class Enemy {
   _build(typeId, def) {
     const s = def.size;
     const base = new THREE.Color(def.color);
-    const skin = new THREE.MeshLambertMaterial({
-      color: 0xffffff, map: skinTexture(def.color, typeId),
-    });
+    const skin = toonMat({ color: 0xffffff, map: skinTexture(def.color, typeId) });
     this.bodyMat = skin;
 
     // ---- corps selon le tier ----
@@ -38,6 +37,7 @@ export class Enemy {
     else if (typeId === 'tank') bodyGeo = new THREE.DodecahedronGeometry(s * 0.95, 0);
     else bodyGeo = new THREE.IcosahedronGeometry(s * 0.85, 0); // grunt : petit démon facetté
     const body = new THREE.Mesh(bodyGeo, skin);
+    body.castShadow = true;
     this.group.add(body);
     this._body = body;
 

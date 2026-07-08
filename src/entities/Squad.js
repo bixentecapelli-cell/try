@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { getWeapon } from '../config/weapons.js';
+import { toonMat } from '../core/toon.js';
 
 // L'escouade du joueur. Rendu via InstancedMesh (perf avec grosses foules).
 // - bodies : capsules colorées (soldiers)
@@ -19,9 +20,10 @@ export class Squad {
     this.speed = 8;
 
     const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 3, 6);
-    const bodyMat = new THREE.MeshLambertMaterial({ color: 0xffd24a });
+    const bodyMat = toonMat({ color: 0xffd24a });
     this.bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, MAX);
     this.bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.bodies.castShadow = true;
     scene.add(this.bodies);
 
     const gunGeo = new THREE.BoxGeometry(0.14, 0.14, 0.7);

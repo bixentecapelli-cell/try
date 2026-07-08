@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { toonMat } from '../core/toon.js';
 
 // Boss de fin de niveau : grosse barre de vie, léger pattern (invocation).
 
@@ -12,14 +13,15 @@ export class Boss {
     this.pos = new THREE.Vector3(0, 0, z);
     this.spawnTimer = 3;
 
-    const geo = new THREE.BoxGeometry(def.size, def.size * 1.3, def.size);
-    const mat = new THREE.MeshLambertMaterial({ color: def.color });
+    const geo = new THREE.DodecahedronGeometry(def.size * 0.85, 0);
+    const mat = toonMat({ color: def.color });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.position.set(0, def.size * 0.65, z);
+    this.mesh.castShadow = true;
 
     // couronne / cornes pour le style boss
     const hornGeo = new THREE.ConeGeometry(def.size * 0.18, def.size * 0.6, 6);
-    const hornMat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+    const hornMat = toonMat({ color: 0xffffff });
     const h1 = new THREE.Mesh(hornGeo, hornMat); h1.position.set(-def.size * 0.3, def.size * 0.9, 0);
     const h2 = new THREE.Mesh(hornGeo, hornMat); h2.position.set(def.size * 0.3, def.size * 0.9, 0);
     this.mesh.add(h1); this.mesh.add(h2);

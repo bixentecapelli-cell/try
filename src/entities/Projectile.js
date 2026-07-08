@@ -21,8 +21,8 @@ export class Projectile {
 
   spawn(pos, vel, size, color, damage, aoe, life) {
     this.mesh.position.copy(pos);
-    // trait fin et allongé, orienté selon la direction du tir
-    this.mesh.scale.set(size * 1.1, size * 1.1, size * 8);
+    // trait fin et TRÈS allongé -> ressemble à une ligne continue
+    this.mesh.scale.set(size * 1.3, size * 1.3, size * 16);
     this.mesh.rotation.y = Math.atan2(vel.x, vel.z);
     this.mesh.material.color.setHex(color);
     this.mesh.visible = true;

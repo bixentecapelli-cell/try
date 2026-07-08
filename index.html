@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PROTÉINE&nbsp;CRÉATIVE — L'agence qui vous fait gonfler</title>
+    <meta name="description" content="Agence créative — les services présentés comme des compléments alimentaires. Branding, web, social, SEO." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Anton&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="cursor-cart" aria-hidden="true">🛒</div>
+
+    <header class="site-header" id="site-header">
+      <div class="brand-mark">PROTÉINE<span>CRÉATIVE</span></div>
+      <nav class="header-nav">
+        <a href="#rayon">Le rayon</a>
+        <a href="#ticket">La caisse</a>
+      </nav>
+      <button class="cart-chip" id="cart-chip" type="button" aria-label="Panier">
+        🛒 <span id="cart-count">0</span>
+      </button>
+    </header>
+
+    <main>
+      <section id="rayon" class="hero-section">
+        <div class="hero-copy">
+          <p class="hero-kicker">RAYON N°3 — AGENCE CRÉATIVE</p>
+          <h1 class="hero-title">DES SERVICES<br />DOPÉS AUX<br />RÉSULTATS.</h1>
+          <p class="hero-sub">Quatre formules. Zéro blabla. 100% actifs créatifs.</p>
+        </div>
+
+        <div id="shelf-canvas-wrap" class="shelf-canvas-wrap">
+          <canvas id="shelf-canvas"></canvas>
+          <div id="shelf-fallback" class="shelf-fallback" hidden></div>
+        </div>
+
+        <div class="shelf-hint">
+          <span>← touchez / survolez un produit →</span>
+        </div>
+      </section>
+
+      <aside id="detail-panel" class="detail-panel" aria-hidden="true">
+        <button id="detail-close" class="detail-close" type="button" aria-label="Fermer">✕</button>
+        <div id="detail-content" class="detail-content"></div>
+      </aside>
+      <div id="detail-overlay" class="detail-overlay"></div>
+
+      <section id="ticket" class="ticket-section">
+        <div class="ticket-zigzag-top"></div>
+        <div class="ticket" id="ticket-paper">
+          <pre class="ticket-ascii">
+ ____ ____   ___ _____ _____ ___ _   _ _____
+|  _ \  _ \ / _ \_   _| ____|_ _| \ | | ____|
+| |_) | |_) | | | || | |  _|  | ||  \| |  _|
+|  __/|  _ &lt;| |_| || | | |___ | || |\  | |___
+|_|   |_| \_\\___/ |_| |_____|___|_| \_|_____|
+          C R É A T I V E
+          </pre>
+          <p class="ticket-center">12 RUE DE LA TYPOGRAPHIE — 75000 PARIS</p>
+          <p class="ticket-center">SIRET 000 000 000 00000</p>
+          <p class="ticket-divider">========================================</p>
+          <p class="ticket-center">CAISSE 03 — VOTRE VENDEUR : CLAUDE</p>
+          <p class="ticket-center" id="ticket-date"></p>
+          <p class="ticket-divider">========================================</p>
+
+          <div id="ticket-lines" class="ticket-lines">
+            <p class="ticket-empty">— PANIER VIDE — AJOUTEZ UN PRODUIT DU RAYON —</p>
+          </div>
+
+          <p class="ticket-divider">----------------------------------------</p>
+          <div class="ticket-totals" id="ticket-totals" hidden>
+            <p class="ticket-row"><span>SOUS-TOTAL</span><span id="ticket-subtotal">0,00 €</span></p>
+            <p class="ticket-row"><span>TVA 20%</span><span id="ticket-tva">0,00 €</span></p>
+            <p class="ticket-row ticket-total"><span>TOTAL</span><span id="ticket-total">0,00 €</span></p>
+          </div>
+          <p class="ticket-divider">========================================</p>
+
+          <p class="ticket-center ticket-thanks">MERCI DE VOTRE VISITE</p>
+          <p class="ticket-center ticket-small">
+            LES SERVICES ACHETÉS NE SONT NI REPRIS NI ÉCHANGÉS<br />(ILS SONT TROP BONS)
+          </p>
+          <p class="ticket-center ticket-small">♻ 100% RECYCLABLE EN IDÉES NEUVES</p>
+
+          <button id="ticket-cta" class="ticket-cta" type="button">PASSER EN CAISSE →</button>
+
+          <canvas id="ticket-barcode-final" class="ticket-barcode-final" width="280" height="70"></canvas>
+          <p class="ticket-center ticket-small">FR-AGENCE-2026</p>
+        </div>
+        <div class="ticket-zigzag-bottom"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

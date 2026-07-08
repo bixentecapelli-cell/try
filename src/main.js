@@ -21,6 +21,9 @@ const hud = new HUD(uiRoot);
 
 let currentLevel = Math.min(SaveManager.data.maxLevelUnlocked, LEVELS.length - 1);
 
+// bouton de tir spécial (UI)
+hud.onFire(() => game.tryFireSpecial());
+
 // Calcule les bonus méta à partir des upgrades sauvegardés.
 function computeBonus() {
   const b = { squadSize: 0, startWeapon: 0, income: 1, damage: 1, fireRate: 1 };
@@ -86,6 +89,7 @@ function loop(now) {
   if (dt > 0.05) dt = 0.05; // clamp (onglet inactif)
 
   const targetX = input.update(dt);
+  if (input.consumeFire()) game.tryFireSpecial(); // barre espace
   game.update(dt, targetX);
   if (game.state === 'running' || game.state === 'boss') {
     hud.update(game, input.started);

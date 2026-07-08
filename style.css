@@ -153,12 +153,19 @@ html, body {
 }
 .flag-icon { font-size: 20px; }
 
-.squad-count {
+.bottom-hud {
   position: absolute;
-  bottom: 26px;
+  bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: clamp(40px, 12vw, 72px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.squad-count {
+  font-size: clamp(38px, 11vw, 66px);
   font-weight: 900;
   color: #fff;
   text-shadow: 0 3px 0 rgba(0,0,0,0.4), 0 0 20px rgba(120,180,255,0.6);
@@ -167,6 +174,78 @@ html, body {
   gap: 8px;
 }
 .squad-count::before { content: "👥"; font-size: 0.6em; }
+
+/* ---- barre de vie du héros ---- */
+.health-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.health-heart { font-size: 22px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)); }
+.health-bar {
+  position: relative;
+  width: min(58vw, 300px);
+  height: 22px;
+  background: rgba(0,0,0,0.55);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255,255,255,0.35);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+}
+.health-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #6bff9e, #23c268);
+  transition: width 0.12s linear, background 0.2s linear;
+}
+.health-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- bouton de tir spécial ---- */
+.fire-btn {
+  position: absolute;
+  right: 22px;
+  bottom: 28px;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.5);
+  background: radial-gradient(circle at 50% 35%, #ff8a3c, #d0341b);
+  box-shadow: 0 6px 0 #8f1f0e, 0 10px 22px rgba(0,0,0,0.45);
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.2s;
+}
+.fire-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #8f1f0e; }
+.fire-btn:not(.ready) { filter: grayscale(0.55) brightness(0.8); }
+.fire-btn.ready { animation: fireReady 1.2s ease-in-out infinite; }
+@keyframes fireReady { 0%,100%{ box-shadow: 0 6px 0 #8f1f0e, 0 10px 22px rgba(0,0,0,0.45);} 50%{ box-shadow: 0 6px 0 #8f1f0e, 0 0 26px rgba(255,140,60,0.9);} }
+.fire-ico { font-size: 30px; line-height: 1; z-index: 2; }
+.fire-label { font-size: 13px; font-weight: 900; letter-spacing: 1px; z-index: 2; }
+.fire-cd {
+  position: absolute;
+  left: 0; bottom: 0;
+  width: 100%;
+  height: 0%;
+  background: rgba(0,0,0,0.45);
+  z-index: 1;
+}
 
 .weapon-tag {
   position: absolute;
@@ -211,9 +290,12 @@ html, body {
 
 .hint {
   position: absolute;
-  bottom: 110px;
+  bottom: 180px;
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: 80vw;
+  text-align: center;
   font-size: 15px;
   opacity: 0.7;
   animation: pulse 1.6s ease-in-out infinite;

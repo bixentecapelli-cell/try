@@ -16,6 +16,12 @@ export const UPGRADES = [
     value: (lvl) => lvl, // index d'arme de départ
   },
   {
+    id: 'maxHealth', name: 'Vie du héros',
+    desc: '+25 points de vie max',
+    baseCost: 70, costMult: 1.6, maxLevel: 20,
+    value: (lvl) => lvl * 25,
+  },
+  {
     id: 'income', name: 'Revenu',
     desc: '+15% de pièces gagnées par niveau',
     baseCost: 60, costMult: 1.6, maxLevel: 15,

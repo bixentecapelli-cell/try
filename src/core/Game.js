@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Squad } from '../entities/Squad.js';
+import { Hero } from '../entities/Hero.js';
 import { Boss } from '../entities/Boss.js';
 import { Enemy } from '../entities/Enemy.js';
 import { CameraRig } from '../systems/CameraRig.js';
@@ -32,8 +33,10 @@ export class Game {
     this.scene.add(this.sun);
 
     this._buildGround();
+    this._buildScenery();
 
     this.squad = new Squad(this.scene);
+    this.hero = new Hero(this.scene);
     this.fx = new FX(this.scene, this.camera);
     this.combat = new CombatSystem(this.scene, this);
     this.spawner = new SpawnSystem(this.scene, this);
@@ -48,6 +51,8 @@ export class Game {
     this.level = null;
     this.bonus = { damage: 1, fireRate: 1 };
     this.runCoins = 0;
+    this.specialCd = 0;        // cooldown du tir spécial
+    this.specialMax = 1.4;
 
     this.onLevelComplete = () => {};
     this.onGameOver = () => {};
@@ -81,6 +86,26 @@ export class Game {
     this.scene.add(this.edgeL); this.scene.add(this.edgeR);
   }
 
+  // Décor latéral qui défile (donne de la profondeur et de la vitesse ressentie).
+  _buildScenery() {
+    this.scenery = [];
+    const geo = new THREE.ConeGeometry(1.1, 3.2, 6);
+    for (let i = 0; i < 24; i++) {
+      const mat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
+      const m = new THREE.Mesh(geo, mat);
+      const side = i % 2 === 0 ? -1 : 1;
+      m.position.set(side * (8 + Math.random() * 4), 1.6, i * 12);
+      m.rotation.y = Math.random() * Math.PI;
+      this.scene.add(m);
+      this.scenery.push(m);
+    }
+    this._sceneryGeo = geo;
+  }
+
+  _applySceneryTheme(color) {
+    if (this.scenery) this.scenery.forEach((m) => m.material.color.setHex(color));
+  }
+
   _applyTheme(level) {
     const sky = new THREE.Color(level.sky);
     this.scene.background = sky;
@@ -91,6 +116,9 @@ export class Game {
     ctx.fillStyle = `#${g.getHexString()}`; ctx.fillRect(0, 0, 64, 64);
     ctx.fillStyle = 'rgba(0,0,0,0.10)'; ctx.fillRect(0, 0, 64, 5);
     this.groundTex.needsUpdate = true;
+    // teinte du décor dérivée du sol, un peu assombrie
+    const dark = new THREE.Color(level.ground).multiplyScalar(0.7);
+    this._applySceneryTheme(dark.getHex());
   }
 
   start(levelIndex, bonus) {
@@ -105,10 +133,13 @@ export class Game {
 
     this.squad.reset(this.level.startSquad + (bonus.squadSize || 0), startWeapon);
     this.squad.speed = 8 + levelIndex * 0.6;
+    this.hero.setMaxHp(100 + (bonus.maxHealth || 0));
+    this.hero.reset();
     this.spawner.load(this.level);
     this.rig.snap(this.squad.pos);
 
     this.runCoins = 0;
+    this.specialCd = 0;
     this.state = 'running';
   }
 
@@ -160,12 +191,23 @@ export class Game {
   }
   setIncome(mult) { this._income = mult; }
 
+  // Tir spécial déclenché par le bouton / barre espace.
+  tryFireSpecial() {
+    if (this.state !== 'running' && this.state !== 'boss') return;
+    if (this.specialCd > 0) return;
+    this.specialCd = this.specialMax;
+    this.combat.fireSpecial(this.hero, this.squad);
+  }
+
   // ---------- boucle ----------
   update(dt, targetX) {
     if (this.state === 'running' || this.state === 'boss') {
       const advancing = this.state === 'running';
       this.squad.update(dt, targetX, advancing);
+      this.hero.update(dt, this.squad.pos.x, this.squad.pos.z + 0.6);
+      if (this.specialCd > 0) this.specialCd = Math.max(0, this.specialCd - dt);
       this._scrollGround();
+      this._scrollScenery();
       this.spawner.update();
       this._updateGates();
       this._updateEnemies(dt);
@@ -180,14 +222,23 @@ export class Game {
       if (this.state === 'boss' && this.boss) {
         const spawn = this.boss.update(dt);
         if (spawn) this.enemies.push(new Enemy(this.scene, spawn, (Math.random() - 0.5) * 6, this.boss.pos.z - 3));
+        // attaque à distance du boss : te met la pression
+        this._bossAtk = (this._bossAtk || 0) - dt;
+        if (this._bossAtk <= 0) {
+          this._bossAtk = 2.6;
+          this.hero.damage(6 + this.levelIndex * 2);
+          this.fx.burst(this.hero.pos.clone().setY(1), 0xff3b3b, 8, 5);
+          this.fx.addShake(0.3);
+        }
       }
       this.rig.update(this.squad.pos, dt);
       this.fx.applyShake();
 
-      if (this.squad.count <= 0 && this.state !== 'over') this._gameOver();
+      if (this.hero.hp <= 0 && this.state !== 'over') this._gameOver();
     } else {
       // idle/done/over : on continue d'animer les FX
       this.squad.update(dt, targetX, false);
+      this.hero.update(dt, this.squad.pos.x, this.squad.pos.z + 0.6);
       this.fx.update(dt);
       this.rig.update(this.squad.pos, dt);
     }
@@ -199,6 +250,17 @@ export class Game {
     this.edgeL.position.z = this.squad.pos.z;
     this.edgeR.position.z = this.squad.pos.z;
     this.groundTex.offset.y = -this.squad.pos.z / 10;
+  }
+
+  _scrollScenery() {
+    const z = this.squad.pos.z;
+    for (const m of this.scenery) {
+      // dès qu'un décor passe derrière, on le replace loin devant
+      if (m.position.z < z - 20) {
+        m.position.z = z + 250 + Math.random() * 30;
+        m.position.x = (m.position.x < 0 ? -1 : 1) * (8 + Math.random() * 4);
+      }
+    }
   }
 
   _updateGates() {
@@ -245,11 +307,12 @@ export class Game {
       const e = this.enemies[i];
       e.update(dt, sq.pos);
       const dz = e.pos.z - sq.pos.z;
-      // contact avec l'escouade
-      if (dz < 0.8 && Math.abs(e.pos.x - sq.pos.x) < sq.halfWidth + 0.5) {
+      // contact avec l'escouade / le héros
+      if (dz < 0.8 && Math.abs(e.pos.x - sq.pos.x) < sq.halfWidth + 0.6) {
         sq.setCount(sq.count - e.def.damage);
+        this.hero.damage(e.def.hpDamage || 6);   // les ennemis te tapent !
         this.fx.burst(sq.pos.clone().setY(1), 0xff3b3b, 10, 5);
-        this.fx.addShake(0.2);
+        this.fx.addShake(0.28);
         this.enemies.splice(i, 1);
         e.dispose();
       } else if (dz < -6) {
@@ -269,6 +332,7 @@ export class Game {
         // atteint le mur encore debout : coûte des soldiers
         const cost = Math.max(2, Math.ceil(o.hp / 12));
         sq.setCount(sq.count - cost);
+        this.hero.damage(Math.min(30, 8 + o.hp / 20));
         this.fx.popNumber(sq.pos.clone().setY(1), `-${cost}`, '#ff6b6b');
         this.fx.addShake(0.35);
         this.audio.gateBad();
@@ -279,6 +343,7 @@ export class Game {
 
   _enterBoss() {
     this.state = 'boss';
+    this._bossAtk = 3;
     const bz = this.squad.pos.z + 20;
     this.boss = new Boss(this.scene, this.level.boss, bz);
     this.fx.addShake(0.5);

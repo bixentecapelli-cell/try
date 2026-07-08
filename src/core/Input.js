@@ -10,9 +10,15 @@ export class Input {
     this.dragging = false;
     this.started = false;      // au moins une interaction (pour cacher le hint)
     this._lastPointerX = 0;
+    this._fireQueued = false;  // tir spécial demandé (edge-triggered)
 
     this._bind();
   }
+
+  // Appelé par le bouton de tir (UI) ou la barre espace.
+  pressFire() { this._fireQueued = true; this.started = true; }
+  // Renvoie true une seule fois par appui.
+  consumeFire() { const f = this._fireQueued; this._fireQueued = false; return f; }
 
   _bind() {
     const c = this.canvas;
@@ -44,6 +50,7 @@ export class Input {
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') { this.keyDir = -1; this.started = true; }
       if (e.key === 'ArrowRight' || e.key === 'd') { this.keyDir = 1; this.started = true; }
+      if (e.key === ' ' || e.key === 'Spacebar') { this.pressFire(); e.preventDefault(); }
     });
     window.addEventListener('keyup', (e) => {
       if ((e.key === 'ArrowLeft' || e.key === 'a') && this.keyDir === -1) this.keyDir = 0;

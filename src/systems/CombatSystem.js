@@ -156,6 +156,30 @@ export class CombatSystem {
     b.deactivate();
   }
 
+  // Tir spécial manuel (bouton) : grosse roquette AoE lancée par le héros.
+  fireSpecial(hero, squad) {
+    const b = this._getBullet();
+    if (!b) return;
+    const from = new THREE.Vector3(hero.pos.x, 1.0, hero.pos.z + 0.5);
+    const { target } = this._nearestTarget(squad);
+    let dx = 0, dz = 1;
+    if (target) {
+      const tx = target.pos ? target.pos.x : target.x;
+      const tz = target.pos ? target.pos.z : target.z;
+      this._dir.set(tx - from.x, 0, tz - from.z).normalize();
+      dx = this._dir.x; dz = this._dir.z;
+    }
+    // dégâts qui montent avec l'escouade + l'arme (récompense le fait d'être gros)
+    const w = squad.weapon;
+    const dmg = 120 + squad.count * 6 + w.tier * 30;
+    const speed = 38;
+    b.spawn(from, new THREE.Vector3(dx * speed, 0, dz * speed),
+      0.6, 0xffef5e, dmg, 5.0, 1.6);
+    this.game.fx.burst(from, 0xffef5e, 14, 8);
+    this.game.fx.addShake(0.35);
+    this.game.audio.explode();
+  }
+
   clear() {
     for (const b of this.pool) b.deactivate();
     this._fireAcc = 0;

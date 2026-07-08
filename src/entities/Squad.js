@@ -8,7 +8,7 @@ import { toonMat } from '../core/toon.js';
 
 const MAX = 1000;
 const LANE_HALF = 5.2;   // demi-largeur de la piste
-const SPACING = 1.15;
+const SPACING = 1.4;     // espacement de la foule (plus large -> ne se stacke pas)
 
 export class Squad {
   constructor(scene) {
@@ -19,7 +19,7 @@ export class Squad {
     this.weaponId = 'pistol';
     this.speed = 8;
 
-    const bodyGeo = new THREE.CapsuleGeometry(0.35, 0.5, 3, 6);
+    const bodyGeo = new THREE.CapsuleGeometry(0.38, 0.58, 3, 6);
     const bodyMat = toonMat({ color: 0xffd24a });
     this.bodies = new THREE.InstancedMesh(bodyGeo, bodyMat, MAX);
     this.bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -35,7 +35,11 @@ export class Squad {
     this._dummy = new THREE.Object3D();
     this._offsets = [];
     this._phases = [];
-    for (let i = 0; i < MAX; i++) this._phases.push(Math.random() * Math.PI * 2);
+    this._jit = [];
+    for (let i = 0; i < MAX; i++) {
+      this._phases.push(Math.random() * Math.PI * 2);
+      this._jit.push({ x: (Math.random() - 0.5) * 0.5, z: (Math.random() - 0.5) * 0.5 });
+    }
     this._rebuildOffsets();
     this._t = 0;
   }
@@ -67,21 +71,26 @@ export class Squad {
     this.guns.geometry = new THREE.BoxGeometry(0.16 * s, 0.16 * s, 0.6 + w.tier * 0.12);
   }
 
-  // Positions relatives (grille centrée) pour `count` soldiers.
+  // Positions relatives : vraie foule étalée DERRIÈRE le héros de tête
+  // (vers la caméra), en damier + petit désordre -> plusieurs persos visibles.
   _rebuildOffsets() {
     const n = this.count;
     this._offsets.length = 0;
     if (n <= 0) return;
-    const cols = Math.max(1, Math.ceil(Math.sqrt(n * 1.4)));
+    const cols = this._cols(n);
     for (let i = 0; i < n; i++) {
       const c = i % cols;
       const r = Math.floor(i / cols);
       const rowCount = Math.min(cols, n - r * cols);
-      const x = (c - (rowCount - 1) / 2) * SPACING;
-      const z = -r * SPACING; // derrière le leader
+      const brick = (r % 2) ? SPACING * 0.5 : 0; // décalage en quinconce
+      const j = this._jit[i];
+      const x = (c - (rowCount - 1) / 2) * SPACING + brick - (r % 2 ? SPACING * 0.25 : 0) + j.x;
+      const z = -1.2 - r * SPACING * 0.9 + j.z; // commence bien derrière le héros
       this._offsets.push({ x, z });
     }
   }
+
+  _cols(n) { return Math.max(1, Math.round(Math.sqrt(n * 1.6))); }
 
   // Position monde d'un soldier (utilisé pour tir/particules)
   soldierWorld(i, out) {
@@ -92,8 +101,7 @@ export class Squad {
 
   // Largeur latérale actuelle de la formation (pour collisions de portes)
   get halfWidth() {
-    const cols = Math.max(1, Math.ceil(Math.sqrt(this.count * 1.4)));
-    return (cols * SPACING) / 2 + 0.4;
+    return (this._cols(this.count) * SPACING) / 2 + 0.4;
   }
 
   update(dt, targetXNorm, advance = true) {

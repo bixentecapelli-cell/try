@@ -9,6 +9,7 @@ import { SpawnSystem } from '../systems/SpawnSystem.js';
 import { FX } from '../systems/FX.js';
 import { getLevel } from '../config/levels.js';
 import { nextWeapon, WEAPON_ORDER, getWeapon } from '../config/weapons.js';
+import { toonMat } from './toon.js';
 
 // Orchestrateur : scène, caméra, boucle, phases (course -> boss -> fin).
 
@@ -46,6 +47,7 @@ export class Game {
     this._buildGround();
     this._buildScenery();
     this._buildChevrons();
+    this._buildClouds();
 
     this.squad = new Squad(this.scene);
     this.hero = new Hero(this.scene);
@@ -152,21 +154,50 @@ export class Game {
     }
   }
 
-  // Décor latéral qui défile (profondeur + vitesse ressentie).
+  // Décor latéral qui défile (profondeur + vitesse ressentie) : arbres + collines.
   _buildScenery() {
     this.scenery = [];
-    const geo = new THREE.ConeGeometry(1.1, 3.6, 6);
+    const treeGeo = new THREE.ConeGeometry(1.1, 3.6, 6);
     for (let i = 0; i < 26; i++) {
-      const mat = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
-      const m = new THREE.Mesh(geo, mat);
+      const mat = toonMat({ color: 0x2e7d32 });
+      const m = new THREE.Mesh(treeGeo, mat);
       const side = i % 2 === 0 ? -1 : 1;
       m.position.set(side * (8 + Math.random() * 5), 1.8, i * 11);
       m.rotation.y = Math.random() * Math.PI;
       m.castShadow = true;
+      m.userData.tree = true;
       this.scene.add(m);
       this.scenery.push(m);
     }
-    this._sceneryGeo = geo;
+    // grandes collines lointaines (fond, pas d'ombre)
+    const hillGeo = new THREE.ConeGeometry(9, 12, 5);
+    for (let i = 0; i < 10; i++) {
+      const mat = new THREE.MeshLambertMaterial({ color: 0x27632f });
+      const m = new THREE.Mesh(hillGeo, mat);
+      const side = i % 2 === 0 ? -1 : 1;
+      m.position.set(side * (26 + Math.random() * 10), 3, i * 26);
+      m.rotation.y = Math.random() * Math.PI;
+      this.scene.add(m);
+      this.scenery.push(m);
+    }
+  }
+
+  _buildClouds() {
+    this.clouds = [];
+    const geo = new THREE.SphereGeometry(1, 8, 6);
+    for (let i = 0; i < 10; i++) {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+      for (let k = 0; k < 3; k++) {
+        const puff = new THREE.Mesh(geo, mat);
+        puff.position.set((k - 1) * 2.2, Math.random() * 0.6, 0);
+        puff.scale.set(2 + Math.random(), 1.4, 1.6);
+        g.add(puff);
+      }
+      g.position.set((Math.random() - 0.5) * 60, 16 + Math.random() * 8, i * 30);
+      this.scene.add(g);
+      this.clouds.push(g);
+    }
   }
 
   _applySceneryTheme(color) {
@@ -277,8 +308,8 @@ export class Game {
         // attaque à distance du boss : te met la pression
         this._bossAtk = (this._bossAtk || 0) - dt;
         if (this._bossAtk <= 0) {
-          this._bossAtk = 2.6;
-          this.hero.damage(6 + this.levelIndex * 2);
+          this._bossAtk = 3.4;
+          this.hero.damage(4 + this.levelIndex * 1.2);
           this.fx.burst(this.hero.pos.clone().setY(1), 0xff3b3b, 8, 5);
           this.fx.addShake(0.3);
         }
@@ -310,6 +341,13 @@ export class Game {
     for (const ch of this.chevrons) {
       if (ch.position.z < z - 6) ch.position.z += this.chevrons.length * 9;
       ch.position.x = this.squad.pos.x * 0.2;
+    }
+    // nuages
+    for (const cl of this.clouds) {
+      if (cl.position.z < z - 30) {
+        cl.position.z = z + 260 + Math.random() * 30;
+        cl.position.x = (Math.random() - 0.5) * 70;
+      }
     }
   }
 
@@ -391,9 +429,9 @@ export class Game {
       if (!o.alive) continue;
       if (sq.pos.z >= o.z - 0.5) {
         // atteint le mur encore debout : coûte des soldiers
-        const cost = Math.max(2, Math.ceil(o.hp / 12));
+        const cost = Math.max(1, Math.ceil(o.hp / 18));
         sq.setCount(sq.count - cost);
-        this.hero.damage(Math.min(30, 8 + o.hp / 20));
+        this.hero.damage(Math.min(20, 5 + o.hp / 30));
         this.fx.popNumber(sq.pos.clone().setY(1), `-${cost}`, '#ff6b6b');
         this.fx.addShake(0.35);
         this.audio.gateBad();

@@ -5,8 +5,8 @@ import * as THREE from 'three';
 export class CameraRig {
   constructor(camera) {
     this.camera = camera;
-    this.offset = new THREE.Vector3(0, 11, -13); // derrière (-z) et au-dessus
-    this.lookAhead = 8;
+    this.offset = new THREE.Vector3(0, 9.5, -15); // derrière (-z) et au-dessus
+    this.lookAhead = 10;
     this._target = new THREE.Vector3();
     this._look = new THREE.Vector3();
   }

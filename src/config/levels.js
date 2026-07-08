@@ -21,7 +21,7 @@ const G = (op, val) => ({ op, val });
 
 export const LEVELS = [
   {
-    name: 'Plaine verte', length: 230, ground: 0x3fa34d, sky: 0x87ceeb, startSquad: 5,
+    name: 'Plaine verte', length: 230, ground: 0x3fa34d, sky: 0x87ceeb, startSquad: 8,
     boss: { name: 'Golem', hp: 650, color: 0x8e44ad, size: 3.2, spawns: ['grunt'] },
     events: [
       gate(35, G('add', 8), G('mul', 2)),
@@ -35,7 +35,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: 'Désert', length: 280, ground: 0xd9a441, sky: 0xf4c95d, startSquad: 7,
+    name: 'Désert', length: 280, ground: 0xd9a441, sky: 0xf4c95d, startSquad: 11,
     boss: { name: 'Scorpion Roi', hp: 1100, color: 0xd35400, size: 3.6, spawns: ['grunt', 'runner'] },
     events: [
       gate(35, G('mul', 2), G('add', 18)),
@@ -50,7 +50,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: 'Toundra', length: 320, ground: 0x9fd8e8, sky: 0xcdeeff, startSquad: 9,
+    name: 'Toundra', length: 320, ground: 0x9fd8e8, sky: 0xcdeeff, startSquad: 14,
     boss: { name: 'Yéti', hp: 1700, color: 0xecf0f1, size: 4.0, spawns: ['runner', 'armored'] },
     events: [
       gate(35, G('add', 25), G('mul', 2)),
@@ -67,7 +67,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: 'Volcan', length: 360, ground: 0x6e2c00, sky: 0xe74c3c, startSquad: 11,
+    name: 'Volcan', length: 360, ground: 0x6e2c00, sky: 0xe74c3c, startSquad: 17,
     boss: { name: 'Dragon', hp: 2600, color: 0xc0392b, size: 4.4, spawns: ['runner', 'grunt', 'armored'] },
     events: [
       gate(35, G('mul', 3), G('add', 35)),
@@ -85,7 +85,7 @@ export const LEVELS = [
     ],
   },
   {
-    name: 'Cité néon', length: 420, ground: 0x2c2c54, sky: 0x40407a, startSquad: 13,
+    name: 'Cité néon', length: 420, ground: 0x2c2c54, sky: 0x40407a, startSquad: 20,
     boss: { name: 'Méga-Bot', hp: 4200, color: 0x00cec9, size: 5.0, spawns: ['armored', 'runner', 'tank'] },
     events: [
       gate(35, G('mul', 3), G('weapon', 1)),

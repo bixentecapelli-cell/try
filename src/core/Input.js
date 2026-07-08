@@ -1,72 +1,60 @@
-// Entrées normalisées : souris (drag), tactile (swipe), clavier.
-// Fournit une valeur latérale cible normalisée [-1, 1] (targetX)
-// et un delta de drag pour un contrôle relatif fluide.
+// Entrées normalisées.
+// - Déplacement latéral ABSOLU : la position du curseur / du doigt = position de
+//   l'escouade (naturel, non inversé).
+// - Tir MAINTENU : clic droit (desktop), barre espace, ou bouton TIR (tactile).
 
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
-    this.targetX = 0;          // position latérale absolue voulue [-1,1]
-    this.keyDir = 0;           // -1 / 0 / 1 selon flèches
-    this.dragging = false;
-    this.started = false;      // au moins une interaction (pour cacher le hint)
-    this._lastPointerX = 0;
-    this._fireQueued = false;  // tir spécial demandé (edge-triggered)
-
+    this.targetX = 0;    // position latérale absolue voulue [-1,1]
+    this.keyDir = 0;     // flèches (relatif)
+    this.firing = false; // tir maintenu
+    this.started = false;
     this._bind();
   }
 
-  // Appelé par le bouton de tir (UI) ou la barre espace.
-  pressFire() { this._fireQueued = true; this.started = true; }
-  // Renvoie true une seule fois par appui.
-  consumeFire() { const f = this._fireQueued; this._fireQueued = false; return f; }
+  // Le bouton TIR (UI) et la barre espace passent par ici.
+  setFiring(v) { this.firing = v; if (v) this.started = true; }
+
+  _setAbsFromClientX(x) {
+    const nx = (x / window.innerWidth) * 2 - 1;
+    this.targetX = clamp(nx, -1, 1);
+    this.started = true;
+  }
 
   _bind() {
     const c = this.canvas;
 
-    const down = (x) => {
-      this.dragging = true;
-      this.started = true;
-      this._lastPointerX = x;
-    };
-    const move = (x) => {
-      if (!this.dragging) return;
-      const dx = (x - this._lastPointerX) / (window.innerWidth * 0.4);
-      this.targetX = clamp(this.targetX + dx, -1, 1);
-      this._lastPointerX = x;
-    };
-    const up = () => { this.dragging = false; };
+    // ---- souris (desktop) : position = déplacement, clic DROIT = tir ----
+    window.addEventListener('mousemove', (e) => this._setAbsFromClientX(e.clientX));
+    window.addEventListener('mousedown', (e) => { if (e.button === 2) this.setFiring(true); });
+    window.addEventListener('mouseup', (e) => { if (e.button === 2) this.setFiring(false); });
+    window.addEventListener('contextmenu', (e) => e.preventDefault()); // pas de menu au clic droit
 
-    // Souris
-    c.addEventListener('mousedown', (e) => down(e.clientX));
-    window.addEventListener('mousemove', (e) => move(e.clientX));
-    window.addEventListener('mouseup', up);
+    // ---- tactile : glisse pour déplacer (tir via le bouton) ----
+    const touchMove = (e) => { if (e.touches[0]) this._setAbsFromClientX(e.touches[0].clientX); };
+    c.addEventListener('touchstart', touchMove, { passive: true });
+    window.addEventListener('touchmove', touchMove, { passive: true });
 
-    // Tactile
-    c.addEventListener('touchstart', (e) => { down(e.touches[0].clientX); }, { passive: true });
-    window.addEventListener('touchmove', (e) => { if (e.touches[0]) move(e.touches[0].clientX); }, { passive: true });
-    window.addEventListener('touchend', up);
-
-    // Clavier
+    // ---- clavier ----
     window.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowLeft' || e.key === 'a') { this.keyDir = -1; this.started = true; }
       if (e.key === 'ArrowRight' || e.key === 'd') { this.keyDir = 1; this.started = true; }
-      if (e.key === ' ' || e.key === 'Spacebar') { this.pressFire(); e.preventDefault(); }
+      if (e.key === ' ' || e.key === 'Spacebar') { this.setFiring(true); e.preventDefault(); }
     });
     window.addEventListener('keyup', (e) => {
       if ((e.key === 'ArrowLeft' || e.key === 'a') && this.keyDir === -1) this.keyDir = 0;
       if ((e.key === 'ArrowRight' || e.key === 'd') && this.keyDir === 1) this.keyDir = 0;
+      if (e.key === ' ' || e.key === 'Spacebar') this.setFiring(false);
     });
   }
 
-  // Applique l'input clavier (relatif) sur targetX
   update(dt) {
-    if (this.keyDir !== 0) {
-      this.targetX = clamp(this.targetX + this.keyDir * dt * 2.2, -1, 1);
-    }
+    if (this.keyDir !== 0) this.targetX = clamp(this.targetX + this.keyDir * dt * 1.6, -1, 1);
     return this.targetX;
   }
 
-  reset() { this.targetX = 0; this.keyDir = 0; this.dragging = false; }
+  reset() { this.targetX = 0; this.keyDir = 0; this.firing = false; }
 }
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }

@@ -51,8 +51,7 @@ export class Game {
     this.level = null;
     this.bonus = { damage: 1, fireRate: 1 };
     this.runCoins = 0;
-    this.specialCd = 0;        // cooldown du tir spécial
-    this.specialMax = 1.4;
+    this.firing = false;       // le joueur maintient le tir
 
     this.onLevelComplete = () => {};
     this.onGameOver = () => {};
@@ -139,7 +138,6 @@ export class Game {
     this.rig.snap(this.squad.pos);
 
     this.runCoins = 0;
-    this.specialCd = 0;
     this.state = 'running';
   }
 
@@ -191,28 +189,20 @@ export class Game {
   }
   setIncome(mult) { this._income = mult; }
 
-  // Tir spécial déclenché par le bouton / barre espace.
-  tryFireSpecial() {
-    if (this.state !== 'running' && this.state !== 'boss') return;
-    if (this.specialCd > 0) return;
-    this.specialCd = this.specialMax;
-    this.combat.fireSpecial(this.hero, this.squad);
-  }
-
   // ---------- boucle ----------
-  update(dt, targetX) {
+  update(dt, targetX, firing) {
+    this.firing = !!firing;
     if (this.state === 'running' || this.state === 'boss') {
       const advancing = this.state === 'running';
       this.squad.update(dt, targetX, advancing);
       this.hero.update(dt, this.squad.pos.x, this.squad.pos.z + 0.6);
-      if (this.specialCd > 0) this.specialCd = Math.max(0, this.specialCd - dt);
       this._scrollGround();
       this._scrollScenery();
       this.spawner.update();
       this._updateGates();
       this._updateEnemies(dt);
       this._updateObstacles();
-      this.combat.update(dt);
+      this.combat.update(dt, this.firing);
       this.fx.update(dt);
 
       if (this.state === 'running' && this.spawner.idx >= this.spawner.events.length

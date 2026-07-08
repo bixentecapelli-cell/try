@@ -96,8 +96,9 @@ export class Squad {
 
   update(dt, targetXNorm, advance = true) {
     this._t += dt;
-    // déplacement latéral fluide
-    this.targetX = targetXNorm * LANE_HALF;
+    // déplacement latéral fluide (négatif : la caméra regarde vers +z, donc
+    // l'écran est miroir du monde -> on aligne le contrôle sur ce que le joueur voit)
+    this.targetX = -targetXNorm * LANE_HALF;
     this.pos.x += (this.targetX - this.pos.x) * Math.min(1, dt * 10);
     if (advance) {
       this.pos.z += this.speed * dt;

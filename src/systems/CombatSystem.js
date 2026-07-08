@@ -4,8 +4,8 @@ import { Projectile } from '../entities/Projectile.js';
 // Gère le tir de l'escouade, le déplacement des balles, collisions & dégâts.
 // Renvoie via game les pièces gagnées et les soldiers perdus.
 
-const MAX_BULLETS = 240;
-const MAX_RATE = 90; // balles/seconde max (perf)
+const MAX_BULLETS = 320;
+const MAX_RATE = 110; // traceurs/seconde max (perf)
 
 export class CombatSystem {
   constructor(scene, game) {
@@ -37,12 +37,15 @@ export class CombatSystem {
     return { target: best, dist: bestD };
   }
 
-  update(dt) {
+  // firing = le joueur maintient le tir (clic droit / espace / bouton TIR)
+  update(dt, firing) {
     const squad = this.game.squad;
     const bonus = this.game.bonus;
-    if (squad.count > 0) this._fire(dt, squad, bonus);
+    // les héros ne tirent QUE si on maintient le tir
+    if (firing && squad.count > 0) this._fire(dt, squad, bonus);
+    else this._fireAcc = 0;
 
-    // déplacement des balles + collisions
+    // déplacement des traceurs + collisions
     for (const b of this.pool) {
       if (!b.active) continue;
       b.mesh.position.addScaledVector(b.vel, dt);
@@ -54,7 +57,8 @@ export class CombatSystem {
 
   _fire(dt, squad, bonus) {
     const w = squad.weapon;
-    const shooters = Math.min(squad.count, 25);
+    // plus de héros = plus de tirs (chaque héros tire) ; plafonné pour les perfs
+    const shooters = Math.min(squad.count, 60);
     const fireRate = w.fireRate * (bonus.fireRate || 1);
     let bulletsPerSec = shooters * fireRate;
     let dmgScale = squad.count / shooters; // reporte la puissance des soldiers en trop
@@ -71,16 +75,15 @@ export class CombatSystem {
     shots = Math.min(shots, 12); // limite par frame
 
     const { target } = this._nearestTarget(squad);
-    if (!target) return; // rien à viser : on économise les balles
 
     for (let s = 0; s < shots; s++) {
       const si = Math.floor(Math.random() * squad.count);
       squad.soldierWorld(si, this._tmp);
       const from = this._tmp.clone();
-      from.y = 0.8;
-      // vise la cible
-      const tx = target.pos ? target.pos.x : target.x;
-      const tz = target.pos ? target.pos.z : target.z;
+      from.y = 0.85;
+      // vise la cible, sinon tir droit devant (le trait sort du héros)
+      const tx = target ? (target.pos ? target.pos.x : target.x) : from.x;
+      const tz = target ? (target.pos ? target.pos.z : target.z) : from.z + 20;
       const pellets = w.pellets || 1;
       for (let p = 0; p < pellets; p++) {
         const b = this._getBullet();
@@ -107,7 +110,7 @@ export class CombatSystem {
 
     // ennemis
     for (const e of game.enemies) {
-      const r = e.def.size * 0.6 + b.mesh.scale.x;
+      const r = e.def.size * 0.7 + 0.5;
       if (Math.abs(bx - e.pos.x) < r && Math.abs(bz - e.pos.z) < r) {
         this._applyDamage(e, b, false);
         return this._afterHit(b, bx, bz);
@@ -154,30 +157,6 @@ export class CombatSystem {
 
   _afterHit(b, x, z) {
     b.deactivate();
-  }
-
-  // Tir spécial manuel (bouton) : grosse roquette AoE lancée par le héros.
-  fireSpecial(hero, squad) {
-    const b = this._getBullet();
-    if (!b) return;
-    const from = new THREE.Vector3(hero.pos.x, 1.0, hero.pos.z + 0.5);
-    const { target } = this._nearestTarget(squad);
-    let dx = 0, dz = 1;
-    if (target) {
-      const tx = target.pos ? target.pos.x : target.x;
-      const tz = target.pos ? target.pos.z : target.z;
-      this._dir.set(tx - from.x, 0, tz - from.z).normalize();
-      dx = this._dir.x; dz = this._dir.z;
-    }
-    // dégâts qui montent avec l'escouade + l'arme (récompense le fait d'être gros)
-    const w = squad.weapon;
-    const dmg = 120 + squad.count * 6 + w.tier * 30;
-    const speed = 38;
-    b.spawn(from, new THREE.Vector3(dx * speed, 0, dz * speed),
-      0.6, 0xffef5e, dmg, 5.0, 1.6);
-    this.game.fx.burst(from, 0xffef5e, 14, 8);
-    this.game.fx.addShake(0.35);
-    this.game.audio.explode();
   }
 
   clear() {

@@ -29,12 +29,11 @@ export class HUD {
       </div>
 
       <button class="fire-btn" id="hud-fire">
-        <span class="fire-ico">🔥</span>
+        <span class="fire-ico">🔫</span>
         <span class="fire-label">TIR</span>
-        <div class="fire-cd" id="hud-fire-cd"></div>
       </button>
 
-      <div class="hint" id="hud-hint">Glisse pour déplacer · 🔥 pour l'attaque spéciale</div>
+      <div class="hint" id="hud-hint">Glisse pour déplacer · MAINTIENS 🔫 (ou clic droit) pour tirer</div>
     `;
     root.appendChild(this.el);
     this.progress = this.el.querySelector('#hud-progress');
@@ -48,14 +47,17 @@ export class HUD {
     this.health = this.el.querySelector('#hud-health');
     this.healthText = this.el.querySelector('#hud-health-text');
     this.fireBtn = this.el.querySelector('#hud-fire');
-    this.fireCd = this.el.querySelector('#hud-fire-cd');
   }
 
-  // main branche le tir ici (clic + tactile)
-  onFire(cb) {
-    const fire = (e) => { e.preventDefault(); e.stopPropagation(); cb(); };
-    this.fireBtn.addEventListener('mousedown', fire);
-    this.fireBtn.addEventListener('touchstart', fire, { passive: false });
+  // main branche le tir maintenu ici : cb(true) à l'appui, cb(false) au relâcher.
+  onFireHold(cb) {
+    const down = (e) => { e.preventDefault(); e.stopPropagation(); cb(true); this.fireBtn.classList.add('held'); };
+    const up = (e) => { if (e) e.preventDefault(); cb(false); this.fireBtn.classList.remove('held'); };
+    this.fireBtn.addEventListener('mousedown', down);
+    window.addEventListener('mouseup', up);
+    this.fireBtn.addEventListener('touchstart', down, { passive: false });
+    window.addEventListener('touchend', up);
+    this.fireBtn.addEventListener('touchcancel', up);
   }
 
   show() { this.el.style.display = 'block'; }
@@ -77,11 +79,6 @@ export class HUD {
       : t > 0.25 ? 'linear-gradient(90deg,#ffe259,#ffa751)'
         : 'linear-gradient(90deg,#ff6b6b,#c0392b)';
     this.healthText.textContent = Math.ceil(hp);
-
-    // cooldown du tir
-    const cd = game.specialCd / game.specialMax;
-    this.fireCd.style.height = `${cd * 100}%`;
-    this.fireBtn.classList.toggle('ready', cd <= 0);
 
     // barre de boss
     if (game.boss && game.boss.alive) {

@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 
-// Balle simple. Instanciée/poolée par le CombatSystem.
+// Traceur : une "ligne" lumineuse qui sort du personnage vers l'avant.
+// Poolé par le CombatSystem.
 
 export class Projectile {
   constructor(scene) {
     this.scene = scene;
-    const geo = new THREE.SphereGeometry(1, 8, 8);
+    // géométrie allongée en Z -> ressemble à un trait/tir
+    const geo = new THREE.BoxGeometry(1, 1, 1);
     const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.visible = false;
@@ -19,7 +21,9 @@ export class Projectile {
 
   spawn(pos, vel, size, color, damage, aoe, life) {
     this.mesh.position.copy(pos);
-    this.mesh.scale.setScalar(size);
+    // trait fin et allongé, orienté selon la direction du tir
+    this.mesh.scale.set(size * 1.1, size * 1.1, size * 8);
+    this.mesh.rotation.y = Math.atan2(vel.x, vel.z);
     this.mesh.material.color.setHex(color);
     this.mesh.visible = true;
     this.vel.copy(vel);

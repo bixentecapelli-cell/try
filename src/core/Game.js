@@ -1,0 +1,305 @@
+import * as THREE from 'three';
+import { Squad } from '../entities/Squad.js';
+import { Boss } from '../entities/Boss.js';
+import { Enemy } from '../entities/Enemy.js';
+import { CameraRig } from '../systems/CameraRig.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
+import { SpawnSystem } from '../systems/SpawnSystem.js';
+import { FX } from '../systems/FX.js';
+import { getLevel } from '../config/levels.js';
+import { nextWeapon, WEAPON_ORDER, getWeapon } from '../config/weapons.js';
+
+// Orchestrateur : scène, caméra, boucle, phases (course -> boss -> fin).
+
+export class Game {
+  constructor(canvas, audio) {
+    this.audio = audio;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+    this.scene = new THREE.Scene();
+    this.scene.fog = new THREE.Fog(0x87ceeb, 40, 120);
+
+    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+    this.rig = new CameraRig(this.camera);
+
+    // lumières
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x445566, 1.0);
+    this.scene.add(hemi);
+    this.sun = new THREE.DirectionalLight(0xffffff, 1.1);
+    this.sun.position.set(10, 30, 10);
+    this.scene.add(this.sun);
+
+    this._buildGround();
+
+    this.squad = new Squad(this.scene);
+    this.fx = new FX(this.scene, this.camera);
+    this.combat = new CombatSystem(this.scene, this);
+    this.spawner = new SpawnSystem(this.scene, this);
+
+    this.gates = [];
+    this.enemies = [];
+    this.obstacles = [];
+    this.boss = null;
+
+    this.state = 'idle'; // idle | running | boss | done | over
+    this.levelIndex = 0;
+    this.level = null;
+    this.bonus = { damage: 1, fireRate: 1 };
+    this.runCoins = 0;
+
+    this.onLevelComplete = () => {};
+    this.onGameOver = () => {};
+    this.onBossAppear = () => {};
+
+    window.addEventListener('resize', () => this._onResize());
+  }
+
+  _buildGround() {
+    // texture répétée pour l'effet de défilement
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#3fa34d'; ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = 'rgba(0,0,0,0.08)'; ctx.fillRect(0, 0, 64, 4);
+    this.groundTex = new THREE.CanvasTexture(c);
+    this.groundTex.wrapS = this.groundTex.wrapT = THREE.RepeatWrapping;
+    this.groundTex.repeat.set(6, 60);
+
+    const geo = new THREE.PlaneGeometry(24, 600);
+    this.groundMat = new THREE.MeshLambertMaterial({ map: this.groundTex, color: 0xffffff });
+    this.ground = new THREE.Mesh(geo, this.groundMat);
+    this.ground.rotation.x = -Math.PI / 2;
+    this.scene.add(this.ground);
+
+    // bords lumineux
+    const edgeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const edgeGeo = new THREE.BoxGeometry(0.3, 0.3, 600);
+    this.edgeL = new THREE.Mesh(edgeGeo, edgeMat); this.edgeL.position.x = -6;
+    this.edgeR = new THREE.Mesh(edgeGeo, edgeMat); this.edgeR.position.x = 6;
+    this.scene.add(this.edgeL); this.scene.add(this.edgeR);
+  }
+
+  _applyTheme(level) {
+    const sky = new THREE.Color(level.sky);
+    this.scene.background = sky;
+    this.scene.fog.color = sky;
+    const g = new THREE.Color(level.ground);
+    const c = this.groundTex.image;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = `#${g.getHexString()}`; ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = 'rgba(0,0,0,0.10)'; ctx.fillRect(0, 0, 64, 5);
+    this.groundTex.needsUpdate = true;
+  }
+
+  start(levelIndex, bonus) {
+    this.clear();
+    this.levelIndex = levelIndex;
+    this.level = getLevel(levelIndex);
+    this._applyTheme(this.level);
+
+    // bonus méta (dégâts, cadence) fournis par le SaveManager via main
+    this.bonus = { damage: bonus.damage || 1, fireRate: bonus.fireRate || 1 };
+    const startWeapon = WEAPON_ORDER[Math.min(bonus.startWeapon || 0, WEAPON_ORDER.length - 1)];
+
+    this.squad.reset(this.level.startSquad + (bonus.squadSize || 0), startWeapon);
+    this.squad.speed = 8 + levelIndex * 0.6;
+    this.spawner.load(this.level);
+    this.rig.snap(this.squad.pos);
+
+    this.runCoins = 0;
+    this.state = 'running';
+  }
+
+  clear() {
+    this.gates.forEach((g) => { g.left.dispose(); g.right.dispose(); });
+    this.enemies.forEach((e) => e.dispose());
+    this.obstacles.forEach((o) => o.dispose());
+    if (this.boss) { this.boss.dispose(); this.boss = null; }
+    this.gates = []; this.enemies = []; this.obstacles = [];
+    this.combat.clear();
+    this.fx.clear();
+  }
+
+  // ---------- callbacks combat ----------
+  killEnemy(e) {
+    const i = this.enemies.indexOf(e);
+    if (i === -1) return;
+    this.enemies.splice(i, 1);
+    this.fx.burst(e.mesh.position, e.def.color, 12, 6);
+    this.runCoins += e.def.reward;
+    this.audio.enemyDie();
+    e.dispose();
+  }
+
+  destroyObstacle(o) {
+    o.alive = false;
+    const i = this.obstacles.indexOf(o);
+    if (i !== -1) this.obstacles.splice(i, 1);
+    this.fx.burst(o.mesh.position, 0x8d6e63, 20, 7);
+    this.fx.addShake(0.3);
+    this.audio.explode();
+    o.dispose();
+  }
+
+  onBossDead() {
+    if (!this.boss) return;
+    this.fx.burst(this.boss.mesh.position, this.boss.def.color, 40, 12);
+    this.fx.addShake(0.8);
+    this.runCoins += 30 + this.levelIndex * 15;
+    this.boss.dispose();
+    this.boss = null;
+    this.state = 'done';
+    this.audio.win();
+    this.onLevelComplete(this.finalCoins());
+  }
+
+  finalCoins() {
+    return Math.round(this.runCoins * (this._income || 1));
+  }
+  setIncome(mult) { this._income = mult; }
+
+  // ---------- boucle ----------
+  update(dt, targetX) {
+    if (this.state === 'running' || this.state === 'boss') {
+      const advancing = this.state === 'running';
+      this.squad.update(dt, targetX, advancing);
+      this._scrollGround();
+      this.spawner.update();
+      this._updateGates();
+      this._updateEnemies(dt);
+      this._updateObstacles();
+      this.combat.update(dt);
+      this.fx.update(dt);
+
+      if (this.state === 'running' && this.spawner.idx >= this.spawner.events.length
+          && this.squad.pos.z >= this.level.length) {
+        this._enterBoss();
+      }
+      if (this.state === 'boss' && this.boss) {
+        const spawn = this.boss.update(dt);
+        if (spawn) this.enemies.push(new Enemy(this.scene, spawn, (Math.random() - 0.5) * 6, this.boss.pos.z - 3));
+      }
+      this.rig.update(this.squad.pos, dt);
+      this.fx.applyShake();
+
+      if (this.squad.count <= 0 && this.state !== 'over') this._gameOver();
+    } else {
+      // idle/done/over : on continue d'animer les FX
+      this.squad.update(dt, targetX, false);
+      this.fx.update(dt);
+      this.rig.update(this.squad.pos, dt);
+    }
+    this.renderer.render(this.scene, this.camera);
+  }
+
+  _scrollGround() {
+    this.ground.position.z = this.squad.pos.z;
+    this.edgeL.position.z = this.squad.pos.z;
+    this.edgeR.position.z = this.squad.pos.z;
+    this.groundTex.offset.y = -this.squad.pos.z / 10;
+  }
+
+  _updateGates() {
+    for (let i = this.gates.length - 1; i >= 0; i--) {
+      const pair = this.gates[i];
+      if (!pair.used && this.squad.pos.z >= pair.z) {
+        pair.used = true;
+        const gate = this.squad.pos.x >= 0 ? pair.right : pair.left;
+        this._applyGate(gate);
+        pair.left.dispose();
+        pair.right.dispose();
+        this.gates.splice(i, 1);
+      } else if (this.squad.pos.z > pair.z + 8) {
+        pair.left.dispose(); pair.right.dispose();
+        this.gates.splice(i, 1);
+      }
+    }
+  }
+
+  _applyGate(gate) {
+    const pos = this.squad.pos.clone(); pos.y = 1;
+    if (gate.effect.op === 'weapon') {
+      let id = this.squad.weaponId;
+      for (let k = 0; k < gate.effect.val; k++) id = nextWeapon(id).id;
+      this.squad.setWeapon(id);
+      this.fx.popNumber(pos, getWeapon(id).name, '#2ecc71');
+      this.fx.burst(pos, 0x2ecc71, 16, 6);
+      this.audio.gateGood();
+      return;
+    }
+    const before = this.squad.count;
+    const after = gate.apply(before);
+    this.squad.setCount(after);
+    const diff = after - before;
+    const label = diff >= 0 ? `+${diff}` : `${diff}`;
+    this.fx.popNumber(pos, label, gate.good ? '#7bff9e' : '#ff6b6b');
+    this.fx.burst(pos, gate.good ? 0x27ae60 : 0xc0392b, 14, 6);
+    if (gate.good) this.audio.gateGood(); else this.audio.gateBad();
+  }
+
+  _updateEnemies(dt) {
+    const sq = this.squad;
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const e = this.enemies[i];
+      e.update(dt, sq.pos);
+      const dz = e.pos.z - sq.pos.z;
+      // contact avec l'escouade
+      if (dz < 0.8 && Math.abs(e.pos.x - sq.pos.x) < sq.halfWidth + 0.5) {
+        sq.setCount(sq.count - e.def.damage);
+        this.fx.burst(sq.pos.clone().setY(1), 0xff3b3b, 10, 5);
+        this.fx.addShake(0.2);
+        this.enemies.splice(i, 1);
+        e.dispose();
+      } else if (dz < -6) {
+        // dépassé l'escouade (raté) : nettoyage
+        this.enemies.splice(i, 1);
+        e.dispose();
+      }
+    }
+  }
+
+  _updateObstacles() {
+    const sq = this.squad;
+    for (let i = this.obstacles.length - 1; i >= 0; i--) {
+      const o = this.obstacles[i];
+      if (!o.alive) continue;
+      if (sq.pos.z >= o.z - 0.5) {
+        // atteint le mur encore debout : coûte des soldiers
+        const cost = Math.max(2, Math.ceil(o.hp / 12));
+        sq.setCount(sq.count - cost);
+        this.fx.popNumber(sq.pos.clone().setY(1), `-${cost}`, '#ff6b6b');
+        this.fx.addShake(0.35);
+        this.audio.gateBad();
+        this.destroyObstacle(o);
+      }
+    }
+  }
+
+  _enterBoss() {
+    this.state = 'boss';
+    const bz = this.squad.pos.z + 20;
+    this.boss = new Boss(this.scene, this.level.boss, bz);
+    this.fx.addShake(0.5);
+    this.onBossAppear();
+  }
+
+  _gameOver() {
+    this.state = 'over';
+    this.audio.lose();
+    this.onGameOver();
+  }
+
+  _onResize() {
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  progress() {
+    if (!this.level) return 0;
+    if (this.state === 'boss' || this.state === 'done') return 1;
+    return Math.min(1, this.squad.pos.z / this.level.length);
+  }
+}

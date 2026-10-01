@@ -9,7 +9,10 @@ export type League =
   | "Serie A"
   | "Bundesliga"
   | "Champions League"
-  | "Europa League";
+  | "Europa League"
+  | "Nations League"
+  | "Qualif. Coupe du Monde"
+  | "Qualif. Euro";
 
 export type MarketKey =
   | "1" // home win

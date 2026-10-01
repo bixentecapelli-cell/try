@@ -34,13 +34,19 @@ import type { Match, League, WinamaxOdds } from "@/types";
 // ============================================================================
 
 const SPORT_KEYS: Record<string, League> = {
+  // Ligues domestiques
   soccer_france_ligue_one: "Ligue 1",
   soccer_epl: "Premier League",
   soccer_spain_la_liga: "La Liga",
   soccer_italy_serie_a: "Serie A",
   soccer_germany_bundesliga: "Bundesliga",
+  // Compétitions UEFA inter-clubs
   soccer_uefa_champs_league: "Champions League",
   soccer_uefa_europa_league: "Europa League",
+  // Sélections nationales
+  soccer_uefa_nations_league: "Nations League",
+  soccer_fifa_world_cup_qualifiers_europe: "Qualif. Coupe du Monde",
+  soccer_uefa_european_championship_qualifiers: "Qualif. Euro",
 };
 
 const PREFERRED_BOOK = "winamax";

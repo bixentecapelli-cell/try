@@ -1,4 +1,4 @@
-import { LineChart, Zap } from "lucide-react";
+import { LineChart, Zap, AlertCircle } from "lucide-react";
 import { fetchFootballMatches } from "@/lib/scrapers/winamax";
 import { analyzeMatch, pickSafeBet, pickValueBet } from "@/lib/engine/scoring";
 import { BetPickerCards } from "@/components/dashboard/BetPickerCards";
@@ -92,6 +92,33 @@ export default async function HomePage() {
           <span>MàJ {new Date(fetchedAt).toLocaleTimeString("fr-FR")}</span>
         </div>
       </header>
+
+      {source === "mock" && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-200">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <div className="text-sm">
+            <p className="font-semibold">Mode démo — cotes et équipes fictives</p>
+            <p className="mt-1 text-xs text-amber-300/80">
+              Pour afficher les vrais matchs du jour (Ligue des Nations, Ligue 1, Premier League,
+              Qualifs CDM…) avec les cotes Winamax réelles, configure la variable
+              d&apos;environnement{" "}
+              <code className="rounded bg-amber-500/20 px-1 py-0.5 font-mono text-[11px]">
+                ODDS_API_KEY
+              </code>{" "}
+              sur Vercel (clé gratuite sur{" "}
+              <a
+                href="https://the-odds-api.com"
+                className="underline"
+                target="_blank"
+                rel="noreferrer noopener"
+              >
+                the-odds-api.com
+              </a>
+              , 500 requêtes/mois).
+            </p>
+          </div>
+        </div>
+      )}
 
       <BetPickerCards safe={safe} value={value} featured={featured} />
 

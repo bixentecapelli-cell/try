@@ -1,6 +1,7 @@
 import type { Match } from "@/types";
-import { MOCK_MATCHES } from "@/lib/data/mock";
+import { MOCK_MATCHES, getMockMatches } from "@/lib/data/mock";
 import { fetchWinamaxBoard } from "./winamax-live";
+import { fetchOddsApiMatches } from "./odds-api";
 import { recordSnapshot } from "@/lib/history/snapshots";
 
 // ============================================================================
@@ -15,7 +16,7 @@ import { recordSnapshot } from "@/lib/history/snapshots";
 //   4. Record the odds snapshot for the Odds Tracker and the backtester.
 // ============================================================================
 
-export type MatchSource = "winamax" | "mock" | "merged";
+export type MatchSource = "odds-api" | "winamax" | "mock" | "merged";
 
 export interface FetchOptions {
   leagues?: string[];
@@ -67,14 +68,22 @@ export async function fetchFootballMatches(opts: FetchOptions = {}): Promise<{
     return { matches: filtered, source: cache.source, fetchedAt: cache.fetchedAt };
   }
 
-  let data: Match[] = MOCK_MATCHES;
+  let data: Match[] = getMockMatches();
   let source: MatchSource = "mock";
 
   if (!opts.forceMock) {
-    const live = await fetchWinamaxBoard();
-    if (live && live.length > 0) {
-      data = enrichWithMockStats(live);
-      source = "merged";
+    // 1. Try The Odds API (real public data, works from Vercel IPs)
+    const oddsApi = await fetchOddsApiMatches();
+    if (oddsApi && oddsApi.length > 0) {
+      data = enrichWithMockStats(oddsApi);
+      source = "odds-api";
+    } else {
+      // 2. Fall back to direct Winamax HTML scrape
+      const live = await fetchWinamaxBoard();
+      if (live && live.length > 0) {
+        data = enrichWithMockStats(live);
+        source = "merged";
+      }
     }
   }
 

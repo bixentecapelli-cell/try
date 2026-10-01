@@ -4,10 +4,22 @@ import type { Match, TeamStats, FormResult, League } from "@/types";
 // Mock dataset — realistic parameters calibrated so the scoring engine returns
 // coherent markets. Each match has a different narrative so the dashboard
 // surfaces distinct Safe / Value / Featured picks.
+//
+// Kickoff dates are stored as RELATIVE offsets from "today" so the slate
+// always shows upcoming fixtures (never a frozen historical list). Use
+// `getMockMatches()` to get the dataset with current dates applied.
 // ============================================================================
 
 function form(seq: string): FormResult[] {
   return seq.split("").map((c) => c as FormResult);
+}
+
+/** Returns an ISO kickoff `offsetDays` from today at the given UTC hour/minute. */
+function kickoffIn(offsetDays: number, hour: number, minute = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + offsetDays);
+  d.setUTCHours(hour, minute, 0, 0);
+  return d.toISOString();
 }
 
 function team(
@@ -340,3 +352,25 @@ export const MOCK_MATCHES: Match[] = [
     },
   },
 ];
+
+// ----------------------------------------------------------------------------
+// Dynamic kickoff rebasing: the hardcoded dates above (2026-10-01..04) are
+// treated as relative offsets from a base day. `getMockMatches()` returns the
+// slate with every kickoff shifted so the "base day" is today, so the UI
+// always shows upcoming fixtures. IDs are rewritten to carry the new date.
+// ----------------------------------------------------------------------------
+
+const BASE_DAY = Date.UTC(2026, 9, 1); // 1 October 2026
+
+export function getMockMatches(now: Date = new Date()): Match[] {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const shiftMs = today.getTime() - BASE_DAY;
+  return MOCK_MATCHES.map((m) => {
+    const original = new Date(m.kickoff).getTime();
+    const next = new Date(original + shiftMs);
+    const iso = next.toISOString();
+    const newId = m.id.replace(/\d{4}-\d{2}-\d{2}$/, iso.slice(0, 10));
+    return { ...m, kickoff: iso, id: newId };
+  });
+}
+

@@ -68,8 +68,23 @@ export default async function HomePage() {
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-500">
-          <Badge variant={source === "winamax" ? "success" : "muted"}>
-            <Zap size={10} /> Source: {source}
+          <Badge
+            variant={
+              source === "odds-api" || source === "merged"
+                ? "success"
+                : source === "winamax"
+                  ? "info"
+                  : "muted"
+            }
+          >
+            <Zap size={10} />{" "}
+            {source === "odds-api"
+              ? "Live · The Odds API"
+              : source === "merged"
+                ? "Live · Winamax"
+                : source === "winamax"
+                  ? "Live · Winamax"
+                  : "Démo · dataset mock"}
           </Badge>
           <Badge variant="info">
             <LineChart size={10} /> {matches.length} matchs

@@ -69,11 +69,35 @@ dévig(u)ée.
 
 ## Source de données
 
-`src/lib/scrapers/winamax.ts` tente d'abord un fetch live sur Winamax
-(`winamax-live.ts`), extrait le `PRELOADED_STATE` et normalise vers notre
-type `Match`. Les stats profondes (xG, forme, H2H) sont ensuite mergées
-depuis le mock dataset indexé par nom d'équipe. En cas d'échec (403,
-timeout, DOM changé), l'orchestrateur retombe sur le dataset mock complet.
+Priorité descendante :
+
+1. **The Odds API** (`src/lib/scrapers/odds-api.ts`) — vraies cotes publiques
+   agrégées (Winamax, Unibet, Betclic, Pinnacle, Bwin…). Nécessite la variable
+   d'environnement `ODDS_API_KEY` (compte gratuit sur
+   [the-odds-api.com](https://the-odds-api.com), 500 req/mois). C'est le mode
+   recommandé en prod — fonctionne depuis Vercel.
+2. **Scraper direct Winamax** (`src/lib/scrapers/winamax-live.ts`) — fetch
+   l'HTML du board et extrait le `PRELOADED_STATE`. Souvent bloqué par le WAF
+   Cloudflare depuis les IPs Vercel, mais marche en local.
+3. **Dataset mock dynamique** (`src/lib/data/mock.ts` → `getMockMatches()`) —
+   6 matchs calibrés avec kickoffs toujours relatifs à "aujourd'hui". Utilisé
+   quand les deux sources live sont KO, pour que la démo reste présentable.
+
+Les stats profondes (xG, forme, H2H) ne sont jamais retournées par les APIs
+publiques : elles sont mergées depuis le mock dataset par nom d'équipe
+(correspondance exacte ou "best effort"). Pour une prod sérieuse, brancher
+Football-Data.org ou API-Football en 4ème couche d'enrichissement.
+
+### Config Vercel
+
+Dans le projet Vercel → **Settings** → **Environment Variables** :
+
+| Key | Value | Scopes |
+|-----|-------|--------|
+| `ODDS_API_KEY` | ton API key the-odds-api.com | Production, Preview, Development |
+
+Redéploie après l'ajout. Le badge "source" du dashboard devient `Live · The
+Odds API` quand la clé est détectée et que l'API répond.
 
 Le hook de persistence `recordSnapshot()` sauvegarde chaque poll pour que
 l'Odds Tracker puisse afficher les variations réelles de cote dès que

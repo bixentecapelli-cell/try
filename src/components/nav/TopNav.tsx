@@ -20,9 +20,15 @@ export function TopNav() {
           <Link href="/" className="transition hover:text-zinc-100">
             Dashboard
           </Link>
-          <span className="cursor-not-allowed text-zinc-600">Combinés</span>
-          <span className="cursor-not-allowed text-zinc-600">Backtest</span>
-          <span className="cursor-not-allowed text-zinc-600">Bankroll</span>
+          <Link href="/#accumulator" className="transition hover:text-zinc-100">
+            Combinés
+          </Link>
+          <Link href="/backtest" className="transition hover:text-zinc-100">
+            Backtest
+          </Link>
+          <Link href="/api/matches" className="transition hover:text-zinc-100">
+            API
+          </Link>
         </div>
       </div>
     </nav>

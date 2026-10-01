@@ -95,7 +95,7 @@ export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
   };
 
   return (
-    <Card>
+    <Card id="accumulator">
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <CardTitle className="flex items-center gap-2 text-zinc-200">

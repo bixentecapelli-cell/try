@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArrowDownRight, ArrowUpRight, Minus, Zap } from "lucide-react";
 import { formatOdds } from "@/lib/utils";
+import { getTrend } from "@/lib/history/snapshots";
 
 function TrendCell({ label, odd, trend }: { label: string; odd: number; trend?: number }) {
   const t = trend ?? 0;
@@ -38,7 +39,11 @@ function TrendCell({ label, odd, trend }: { label: string; odd: number; trend?: 
 
 export function OddsTracker({ match }: { match: Match }) {
   const { odds } = match;
-  const hasTrend = odds.trend1 != null || odds.trendN != null || odds.trend2 != null;
+  // Prefer live snapshot-derived trends; fall back to the mock-encoded ones.
+  const trend1 = getTrend(match.id, "1") ?? odds.trend1;
+  const trendN = getTrend(match.id, "N") ?? odds.trendN;
+  const trend2 = getTrend(match.id, "2") ?? odds.trend2;
+  const hasTrend = trend1 != null || trendN != null || trend2 != null;
 
   return (
     <Card>
@@ -46,12 +51,13 @@ export function OddsTracker({ match }: { match: Match }) {
         <CardTitle>Odds Tracker · 1N2 Winamax (24h)</CardTitle>
       </CardHeader>
       <CardContent className="grid grid-cols-3 gap-2">
-        <TrendCell label={match.home.name} odd={odds["1"]} trend={odds.trend1} />
-        <TrendCell label="Nul" odd={odds.N} trend={odds.trendN} />
-        <TrendCell label={match.away.name} odd={odds["2"]} trend={odds.trend2} />
+        <TrendCell label={match.home.name} odd={odds["1"]} trend={trend1} />
+        <TrendCell label="Nul" odd={odds.N} trend={trendN} />
+        <TrendCell label={match.away.name} odd={odds["2"]} trend={trend2} />
         {!hasTrend && (
           <p className="col-span-3 text-[11px] text-zinc-500">
-            Aucune variation significative captée depuis la dernière synchro.
+            Historique en cours de constitution — repasse dans quelques heures pour voir la
+            direction du marché.
           </p>
         )}
       </CardContent>

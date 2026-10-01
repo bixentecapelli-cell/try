@@ -1,8 +1,9 @@
-import { Activity, LineChart, Zap } from "lucide-react";
+import { LineChart, Zap } from "lucide-react";
 import { fetchFootballMatches } from "@/lib/scrapers/winamax";
 import { analyzeMatch, pickSafeBet, pickValueBet } from "@/lib/engine/scoring";
 import { BetPickerCards } from "@/components/dashboard/BetPickerCards";
 import { MatchListPreview } from "@/components/dashboard/MatchListPreview";
+import { AccumulatorBuilder } from "@/components/dashboard/AccumulatorBuilder";
 import { Badge } from "@/components/ui/badge";
 import type { Match, MarketPrediction } from "@/types";
 
@@ -57,14 +58,6 @@ export default async function HomePage() {
     <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 md:px-6 md:py-12">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-sky-500 text-zinc-950">
-              <Activity size={18} strokeWidth={2.5} />
-            </div>
-            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              Winamax Bet Analyzer
-            </span>
-          </div>
           <h1 className="text-3xl font-bold tracking-tight md:text-4xl">
             Instant Bet Picker
           </h1>
@@ -86,6 +79,8 @@ export default async function HomePage() {
       </header>
 
       <BetPickerCards safe={safe} value={value} featured={featured} />
+
+      <AccumulatorBuilder matches={matches} />
 
       <MatchListPreview matches={matches} />
 

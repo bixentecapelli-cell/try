@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import type { Match } from "@/types";
 import { analyzeMatch } from "@/lib/engine/scoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,9 +61,10 @@ export function MatchListPreview({ matches }: { matches: Match[] }) {
           const byMarket = Object.fromEntries(predictions.map((p) => [p.market, p]));
 
           return (
-            <div
+            <Link
               key={m.id}
-              className="rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4"
+              href={`/match/${m.id}`}
+              className="group block rounded-xl border border-zinc-800/80 bg-zinc-950/40 p-4 transition hover:border-emerald-500/40 hover:bg-zinc-950/70"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -82,6 +85,10 @@ export function MatchListPreview({ matches }: { matches: Match[] }) {
                   <Badge variant="muted">
                     xG {derived.expectedGoalsHome.toFixed(2)} - {derived.expectedGoalsAway.toFixed(2)}
                   </Badge>
+                  <ChevronRight
+                    size={16}
+                    className="text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-emerald-300"
+                  />
                 </div>
               </div>
 
@@ -99,7 +106,7 @@ export function MatchListPreview({ matches }: { matches: Match[] }) {
                   );
                 })}
               </div>
-            </div>
+            </Link>
           );
         })}
       </CardContent>

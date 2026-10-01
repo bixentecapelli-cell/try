@@ -26,6 +26,9 @@ export function TopNav() {
           <Link href="/backtest" className="transition hover:text-zinc-100">
             Backtest
           </Link>
+          <Link href="/bankroll" className="transition hover:text-zinc-100">
+            Bankroll
+          </Link>
           <Link href="/api/matches" className="transition hover:text-zinc-100">
             API
           </Link>

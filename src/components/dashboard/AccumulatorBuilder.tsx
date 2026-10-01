@@ -59,10 +59,17 @@ const ACCENTS: Record<string, { ring: string; bg: string; text: string; badge: s
   },
 };
 
+const PROFILE_TARGETS: Record<RiskProfile, { min: number; max: number; default: number }> = {
+  safe: { min: 1.5, max: 3.0, default: 2.2 },
+  balanced: { min: 2.5, max: 8.0, default: 4.5 },
+  fun: { min: 5.0, max: 25.0, default: 10.0 },
+};
+
 export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
   const [profile, setProfile] = useState<RiskProfile>("balanced");
   const [excludedLeagues, setExcludedLeagues] = useState<Set<League>>(new Set());
   const [excludeDraws, setExcludeDraws] = useState(true);
+  const [targetOdd, setTargetOdd] = useState(PROFILE_TARGETS["balanced"].default);
 
   const availableLeagues = useMemo(() => {
     const set = new Set<League>();
@@ -75,12 +82,15 @@ export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
     [matches, excludedLeagues],
   );
 
+  const targetRange = PROFILE_TARGETS[profile];
+
   const accumulator = useMemo(
     () =>
       buildAccumulator(activeMatches, profile, {
         excludeDraws,
+        targetTotalOdd: targetOdd,
       }),
-    [activeMatches, profile, excludeDraws],
+    [activeMatches, profile, excludeDraws, targetOdd],
   );
 
   const accent = ACCENTS[PROFILES.find((p) => p.id === profile)!.accent];
@@ -92,6 +102,12 @@ export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
       else next.add(l);
       return next;
     });
+  };
+
+  // Re-center the target slider on the profile's natural zone when the user switches profile
+  const changeProfile = (p: RiskProfile) => {
+    setProfile(p);
+    setTargetOdd(PROFILE_TARGETS[p].default);
   };
 
   return (
@@ -119,7 +135,7 @@ export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => setProfile(p.id)}
+                onClick={() => changeProfile(p.id)}
                 className={cn(
                   "flex items-start gap-3 rounded-xl border p-3 text-left transition",
                   active
@@ -182,6 +198,29 @@ export function AccumulatorBuilder({ matches }: { matches: Match[] }) {
             />
             Exclure les nuls
           </label>
+        </div>
+
+        {/* Target total odd slider */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/40 p-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="uppercase tracking-wider text-zinc-500">Cote totale cible</span>
+            <span className={cn("text-sm font-bold tabular-nums", accent.text)}>
+              x{targetOdd.toFixed(2)}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={targetRange.min}
+            max={targetRange.max}
+            step={0.1}
+            value={targetOdd}
+            onChange={(e) => setTargetOdd(Number(e.target.value))}
+            className="mt-2 w-full accent-emerald-500"
+          />
+          <div className="flex justify-between text-[10px] text-zinc-500">
+            <span>x{targetRange.min}</span>
+            <span>x{targetRange.max}</span>
+          </div>
         </div>
 
         {/* Result */}

@@ -50,7 +50,8 @@ const PROFILES: Record<RiskProfile, AccumulatorConfig> = {
 export interface BuildAccumulatorOptions {
   excludeDraws?: boolean;
   leagues?: string[];
-  targetTotalOddOverride?: number;
+  /** When set, the engine picks the leg count whose total odd lands closest to this target. */
+  targetTotalOdd?: number;
 }
 
 export function buildAccumulator(
@@ -77,18 +78,38 @@ export function buildAccumulator(
 
   if (candidates.length < cfg.minLegs) return null;
 
-  // Sort global candidate pool by the profile's ranking rule, then pick top N
-  // whose total odd fits the target window (and max 1 pick per match)
+  // Sort global candidate pool by the profile's ranking rule.
   candidates.sort((a, b) => cfg.rank(a.prediction, b.prediction));
 
+  // Dedupe by match (max 1 leg per match)
   const seen = new Set<string>();
-  const legs: AccumulatorLeg[] = [];
-
+  const uniqueCandidates: AccumulatorLeg[] = [];
   for (const c of candidates) {
     if (seen.has(c.match.id)) continue;
-    legs.push(c);
+    uniqueCandidates.push(c);
     seen.add(c.match.id);
-    if (legs.length >= cfg.maxLegs) break;
+  }
+
+  if (uniqueCandidates.length < cfg.minLegs) return null;
+
+  const target =
+    opts.targetTotalOdd ?? (cfg.targetTotalOdd[0] + cfg.targetTotalOdd[1]) / 2;
+
+  // Try every leg count in the allowed range and pick the one whose total
+  // odd lands closest to the target. Within the same count, we already keep
+  // the best candidates (the pool is sorted by the profile ranker).
+  let legs: AccumulatorLeg[] = [];
+  let bestDistance = Infinity;
+  const maxTry = Math.min(cfg.maxLegs, uniqueCandidates.length);
+
+  for (let n = cfg.minLegs; n <= maxTry; n++) {
+    const picked = uniqueCandidates.slice(0, n);
+    const odd = picked.reduce((acc, l) => acc * l.prediction.odd, 1);
+    const dist = Math.abs(odd - target);
+    if (dist < bestDistance) {
+      bestDistance = dist;
+      legs = picked;
+    }
   }
 
   if (legs.length < cfg.minLegs) return null;
@@ -96,14 +117,6 @@ export function buildAccumulator(
   const totalOdd = legs.reduce((acc, l) => acc * l.prediction.odd, 1);
   const combinedProb = legs.reduce((acc, l) => acc * l.prediction.estimatedProb, 1);
   const combinedEV = combinedProb * totalOdd - 1;
-
-  // Trim down if total odd overshoots the target window
-  while (
-    legs.length > cfg.minLegs &&
-    totalOdd > cfg.targetTotalOdd[1] * 1.3
-  ) {
-    legs.pop();
-  }
 
   const label =
     profile === "safe"

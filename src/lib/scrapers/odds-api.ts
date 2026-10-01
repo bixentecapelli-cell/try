@@ -49,8 +49,22 @@ const SPORT_KEYS: Record<string, League> = {
   soccer_uefa_european_championship_qualifiers: "Qualif. Euro",
 };
 
-const PREFERRED_BOOK = "winamax";
-const BOOK_FALLBACKS = ["unibet_eu", "betclic", "pinnacle", "bwin", "marathonbet"];
+// Bookmaker keys exposés par The Odds API (vérifiés sur réponse live) :
+//   winamax_fr, winamax_de, betclic_fr, pmu_fr, unibet_fr, unibet_se,
+//   unibet_nl, betfair_ex_eu, pinnacle, williamhill, sport888, tipico_de,
+//   betsson, nordicbet, coolbet, matchbook, leovegas_se, onexbet, marathonbet
+const PREFERRED_BOOK = "winamax_fr";
+const BOOK_FALLBACKS = [
+  "winamax_de",
+  "betclic_fr",
+  "unibet_fr",
+  "pmu_fr",
+  "pinnacle",
+  "unibet_se",
+  "sport888",
+  "williamhill",
+  "marathonbet",
+];
 const TIMEOUT_MS = 8_000;
 
 interface OddsApiEvent {
@@ -100,6 +114,45 @@ function pickBookmaker(event: OddsApiEvent) {
     BOOK_FALLBACKS.map(byKey).find(Boolean) ??
     event.bookmakers[0]
   );
+}
+
+// --- Public diagnostic -----------------------------------------------------
+
+export interface OddsApiDiagnostic {
+  configured: boolean;
+  checkedSports: Array<{ sportKey: string; league: League; found: number; httpOk: boolean }>;
+  totalMatches: number;
+  bookmakerBreakdown: Record<string, number>;
+}
+
+export async function diagnoseOddsApi(): Promise<OddsApiDiagnostic> {
+  const key = process.env.ODDS_API_KEY;
+  if (!key) {
+    return { configured: false, checkedSports: [], totalMatches: 0, bookmakerBreakdown: {} };
+  }
+
+  const bookmakerBreakdown: Record<string, number> = {};
+  const checkedSports: OddsApiDiagnostic["checkedSports"] = [];
+  let totalMatches = 0;
+
+  for (const [sportKey, league] of Object.entries(SPORT_KEYS)) {
+    const url = `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/?apiKey=${encodeURIComponent(
+      key,
+    )}&regions=eu&markets=h2h&oddsFormat=decimal`;
+    const events = await fetchWithTimeout(url);
+    const httpOk = events !== null;
+    const found = events?.length ?? 0;
+    totalMatches += found;
+    checkedSports.push({ sportKey, league, found, httpOk });
+    if (events) {
+      for (const ev of events) {
+        const book = pickBookmaker(ev);
+        if (book) bookmakerBreakdown[book.key] = (bookmakerBreakdown[book.key] ?? 0) + 1;
+      }
+    }
+  }
+
+  return { configured: true, checkedSports, totalMatches, bookmakerBreakdown };
 }
 
 function extractOdds(event: OddsApiEvent): WinamaxOdds | null {
